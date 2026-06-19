@@ -82,8 +82,7 @@ def team():
     btts = 0
 
     for m in filtered:
-        home = m["score"]["fullTime"]["home"] or 0
-        away = m["score"]["fullTime"]["away"] or 0
+        /teams/{id}/matches?limit=10
 
         if name.lower() in m["homeTeam"]["name"].lower():
             gols_feitos += home
