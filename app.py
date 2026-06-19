@@ -1,4 +1,3 @@
-```python
 from flask import Flask
 import requests
 
@@ -142,5 +141,4 @@ def team(nome):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
-```
 
