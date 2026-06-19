@@ -3,111 +3,43 @@ import requests
 
 app = Flask(__name__)
 
-API_KEY = "SUA_API_KEY_AQUI"
-BASE_URL = "https://api.football-data.org/v4"
+BASE_URL = "https://api.sofascore.com/api/v1"
 
 headers = {
-    "X-Auth-Token": API_KEY
+    "User-Agent": "Mozilla/5.0"
 }
 
 @app.route("/")
 def home():
     return """
-    <h1>Estatísticas de Futebol</h1>
-    <p>Use: /competitions</p>
-    <p>Use: /brasileirao</p>
-    <p>Use: /team?name=Flamengo</p>
+    <h1>Estatísticas Sofascore</h1>
+    <p>Use: /team?id=2017</p>
     """
 
-# LISTAR COMPETIÇÕES
-@app.route("/competitions")
-def competitions():
-    url = f"{BASE_URL}/competitions"
-    r = requests.get(url, headers=headers)
-    return r.json()
-
-# TESTE DA API
-@app.route("/test")
-def test():
-    url = f"{BASE_URL}/competitions"
-    r = requests.get(url, headers=headers)
-    return r.json()
-
-# BRASILEIRÃO (MÉDIA GERAL)
-@app.route("/brasileirao")
-def brasileirao():
-    url = f"{BASE_URL}/competitions/2013/matches?limit=380"
-    r = requests.get(url, headers=headers)
-
-    data = r.json()
-    matches = data.get("matches", [])
-
-    gols = 0
-    over25 = 0
-    btts = 0
-
-    for m in matches:
-        home = m["score"]["fullTime"]["home"] or 0
-        away = m["score"]["fullTime"]["away"] or 0
-
-        gols += home + away
-
-        if home + away > 2:
-            over25 += 1
-
-        if home > 0 and away > 0:
-            btts += 1
-
-    total = len(matches) if matches else 1
-
-    return {
-        "jogos": total,
-        "gols_totais": gols,
-        "media_gols": gols / total,
-        "over_2_5": f"{(over25 / total) * 100:.2f}%",
-        "btts": f"{(btts / total) * 100:.2f}%"
-    }
-
-# ESTATÍSTICAS POR TIME
 @app.route("/team")
 def team():
-    name = request.args.get("name")
+    team_id = request.args.get("id")
 
-    if not name:
-        return {"erro": "use ?name=Flamengo"}
+    if not team_id:
+        return {"erro": "use ?id=2017"}
 
-    url = f"{BASE_URL}/competitions/2013/matches?limit=380"
+    url = f"{BASE_URL}/team/{team_id}/events/last/10"
     r = requests.get(url, headers=headers)
 
     data = r.json()
-    matches = data.get("matches", [])
-
-    filtered = []
-
-    for m in matches:
-        home_team = m["homeTeam"]["name"]
-        away_team = m["awayTeam"]["name"]
-
-        if name.lower() in home_team.lower() or name.lower() in away_team.lower():
-            filtered.append(m)
-
-    filtered = filtered[-10:]  # últimos 10 jogos
+    events = data.get("events", [])
 
     gols_feitos = 0
     gols_sofridos = 0
     over25 = 0
     btts = 0
 
-    for m in filtered:
-        home = m["score"]["fullTime"]["home"] or 0
-        away = m["score"]["fullTime"]["away"] or 0
+    for e in events:
+        home = e["homeScore"].get("current", 0)
+        away = e["awayScore"].get("current", 0)
 
-        if name.lower() in m["homeTeam"]["name"].lower():
-            gols_feitos += home
-            gols_sofridos += away
-        else:
-            gols_feitos += away
-            gols_sofridos += home
+        gols_feitos += home
+        gols_sofridos += away
 
         if home + away > 2:
             over25 += 1
@@ -115,10 +47,9 @@ def team():
         if home > 0 and away > 0:
             btts += 1
 
-    total = len(filtered) if filtered else 1
+    total = len(events) if events else 1
 
     return {
-        "time": name,
         "jogos": total,
         "gols_feitos": gols_feitos,
         "gols_sofridos": gols_sofridos,
