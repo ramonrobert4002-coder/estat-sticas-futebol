@@ -3,139 +3,103 @@ import requests
 
 app = Flask(__name__)
 
-BASE_URL = "https://api.football-data.org/v4"
-API_KEY = "1e2f241e1846458ab5e8e68f7889bf1f"
+BASE_URL = "https://api-football-v1.p.rapidapi.com/v3"
 
-headers = {
-    "X-Auth-Token": API_KEY
+HEADERS = {
+    "X-RapidAPI-Key": "SUA_CHAVE_AQUI",
+    "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
 }
 
 
 @app.route("/")
 def home():
     return {
-        "mensagem": "API de Estatísticas de Futebol (PRO)",
+        "mensagem": "API de Estatísticas de Futebol PRO",
         "rotas": {
-            "/competitions": "Lista ligas",
-            "/brasileirao": "Estatísticas gerais do Brasileirão",
+            "/team/Flamengo": "Estatísticas do Flamengo",
             "/team/Palmeiras": "Estatísticas do Palmeiras",
-            "/team/Flamengo": "Estatísticas do Flamengo"
+            "/team/Corinthians": "Estatísticas do Corinthians"
         }
     }
 
 
-@app.route("/competitions")
-def competitions():
-    url = f"{BASE_URL}/competitions"
-    r = requests.get(url, headers=headers)
-    return r.json()
+# IDs dos clubes
+TEAMS = {
+    "flamengo": 127,
+    "palmeiras": 131,
+    "corinthians": 126,
+    "santos": 135,
+    "vasco": 139,
+    "gremio": 121,
+    "internacional": 119,
+    "bahia": 118,
+    "cruzeiro": 124,
+    "atletico-mg": 1062
+}
 
 
-@app.route("/brasileirao")
-def brasileirao():
-    url = f"{BASE_URL}/competitions/2013/matches"
-    r = requests.get(url, headers=headers)
+@app.route("/team/<nome>")
+def team(nome):
 
-    data = r.json()
-    matches = data.get("matches", [])
+    nome = nome.lower()
 
-    jogos = [m for m in matches if m["status"] == "FINISHED"]
+    if nome not in TEAMS:
+        return {"erro": "Time não encontrado"}
 
-    gols = 0
-    over25 = 0
-    btts = 0
+    team_id = TEAMS[nome]
 
-    for m in jogos:
-        home = m["score"]["fullTime"]["home"] or 0
-        away = m["score"]["fullTime"]["away"] or 0
+    url = f"{BASE_URL}/fixtures"
 
-        gols += home + away
-
-        if home + away > 2:
-            over25 += 1
-
-        if home > 0 and away > 0:
-            btts += 1
-
-    total = len(jogos) if jogos else 1
-
-    return {
-        "jogos": total,
-        "gols_totais": gols,
-        "media_gols": round(gols / total, 2),
-        "over_2_5": f"{(over25 / total) * 100:.2f}%",
-        "btts": f"{(btts / total) * 100:.2f}%"
+    params = {
+        "team": team_id,
+        "last": 10
     }
 
-
-@app.route("/team/<name>")
-def team(name):
-
-    url = f"{BASE_URL}/competitions/2013/matches"
-    r = requests.get(url, headers=headers)
-
+    r = requests.get(url, headers=HEADERS, params=params)
     data = r.json()
-    matches = data.get("matches", [])
 
-    filtered = []
-
-    for m in matches:
-        home_team = m["homeTeam"]["name"]
-        away_team = m["awayTeam"]["name"]
-
-        if (
-            name.lower() in home_team.lower()
-            or name.lower() in away_team.lower()
-        ) and m["status"] == "FINISHED":
-            filtered.append(m)
-
-    filtered = filtered[-10:]
+    jogos = data["response"]
 
     gols_feitos = 0
     gols_sofridos = 0
+
     over25 = 0
     btts = 0
+
     vitorias = 0
     empates = 0
     derrotas = 0
 
-    ultimos_jogos = []
+    forma = []
 
-    for m in filtered:
+    ultimos = []
 
-        home_team = m["homeTeam"]["name"]
-        away_team = m["awayTeam"]["name"]
+    for j in jogos:
 
-        home = m["score"]["fullTime"]["home"] or 0
-        away = m["score"]["fullTime"]["away"] or 0
+        casa_id = j["teams"]["home"]["id"]
 
-        ultimos_jogos.append(
-            f"{home_team} {home} x {away} {away_team}"
-        )
+        home = j["goals"]["home"] or 0
+        away = j["goals"]["away"] or 0
 
-        if name.lower() in home_team.lower():
-
-            gols_feitos += home
-            gols_sofridos += away
-
-            if home > away:
-                vitorias += 1
-            elif home == away:
-                empates += 1
-            else:
-                derrotas += 1
-
+        if casa_id == team_id:
+            gf = home
+            gs = away
         else:
+            gf = away
+            gs = home
 
-            gols_feitos += away
-            gols_sofridos += home
+        gols_feitos += gf
+        gols_sofridos += gs
 
-            if away > home:
-                vitorias += 1
-            elif away == home:
-                empates += 1
-            else:
-                derrotas += 1
+        if gf > gs:
+            vitorias += 1
+            forma.append("V")
+        elif gf == gs:
+            empates += 1
+            forma.append("E")
+        else:
+            derrotas += 1
+            forma.append("D")
 
         if home + away > 2:
             over25 += 1
@@ -143,15 +107,18 @@ def team(name):
         if home > 0 and away > 0:
             btts += 1
 
-    total = len(filtered)
+        ultimos.append(
+            f'{j["teams"]["home"]["name"]} '
+            f'{home} x {away} '
+            f'{j["teams"]["away"]["name"]}'
+        )
 
-    if total == 0:
-        return {
-            "erro": "Nenhum jogo finalizado encontrado para esse time."
-        }
+    total = len(jogos)
+
+    aproveitamento = (vitorias * 3 + empates) / (total * 3) * 100
 
     return {
-        "time": name,
+        "time": nome.title(),
         "jogos": total,
         "vitorias": vitorias,
         "empates": empates,
@@ -162,7 +129,9 @@ def team(name):
         "media_gols_sofridos": round(gols_sofridos / total, 2),
         "over_2_5": f"{(over25 / total) * 100:.2f}%",
         "btts": f"{(btts / total) * 100:.2f}%",
-        "ultimos_jogos": ultimos_jogos
+        "aproveitamento": f"{aproveitamento:.2f}%",
+        "forma": "".join(forma),
+        "ultimos_jogos": ultimos
     }
 
 
