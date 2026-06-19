@@ -62,6 +62,13 @@ def team_stats():
         "over_2_5": f"{(over25 / total_games) * 100 if total_games else 0:.2f}%",
         "btts": f"{(btts / total_games) * 100 if total_games else 0:.2f}%"
     }
+@app.route("/test")
+def test():
+    url = "https://api.football-data.org/v4/competitions"
+    headers = {"X-Auth-Token": API_KEY}
 
+    r = requests.get(url, headers=headers)
+
+    return r.json()
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
