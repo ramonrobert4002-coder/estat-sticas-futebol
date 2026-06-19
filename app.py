@@ -7,7 +7,7 @@ app = Flask(__name__)
 BASE_URL = "https://api-football-v1.p.rapidapi.com/v3"
 
 HEADERS = {
-    "X-RapidAPI-Key": "SUA_CHAVE_AQUI",
+    "X-RapidAPI-Key": "1e2f241e1846458ab5e8e68f7889bf1f",
     "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
 }
 
