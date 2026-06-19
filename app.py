@@ -1,90 +1,119 @@
-from flask import Flask, request
+from flask import Flask, jsonify
 import requests
 
 app = Flask(__name__)
 
-API_KEY = "1e2f241e1846458ab5e8e68f7889bf1f"
 BASE_URL = "https://api.football-data.org/v4"
+API_KEY = "1e2f241e1846458ab5e8e68f7889bf1f"
 
 headers = {
     "X-Auth-Token": API_KEY
 }
 
-
+# -----------------------------
+# HOME
+# -----------------------------
 @app.route("/")
 def home():
     return {
         "mensagem": "API de Estatísticas de Futebol (PRO)",
         "rotas": {
-            "/competitions": "Lista ligas",
-            "/team?id=ID": "Estatísticas do time"
+            "/competitions": "Lista de ligas",
+            "/team/<nome>": "Estatísticas do time (ex: /team/Flamengo)"
         }
     }
 
 
+# -----------------------------
+# COMPETITIONS
+# -----------------------------
 @app.route("/competitions")
 def competitions():
-    url = f"{BASE_URL}/competitions"
-    r = requests.get(url, headers=headers)
-    return r.json()
+    try:
+        r = requests.get(f"{BASE_URL}/competitions", headers=headers, timeout=10)
+        return jsonify(r.json())
+    except Exception as e:
+        return {"erro": str(e)}
 
 
-@app.route("/team")
-def team():
+# -----------------------------
+# TEAM STATS
+# -----------------------------
+@app.route("/team/<name>")
+def team(name):
 
-    team_id = request.args.get("id")
+    try:
+        url = f"{BASE_URL}/competitions/2013/matches?limit=380"
+        r = requests.get(url, headers=headers, timeout=10)
+        data = r.json()
 
-    if not team_id:
-        return {"erro": "use ?id=2017"}
+        matches = data.get("matches", [])
 
-    url = f"{BASE_URL}/teams/{team_id}/matches?limit=10"
-    r = requests.get(url, headers=headers)
+        filtered = [
+            m for m in matches
+            if name.lower() in m["homeTeam"]["name"].lower()
+            or name.lower() in m["awayTeam"]["name"].lower()
+        ]
 
-    data = r.json()
-    matches = data.get("matches", [])
+        last_matches = filtered[-5:]
 
-    if not matches:
-        return {"erro": "nenhum jogo encontrado para esse time"}
+        gols_feitos = 0
+        gols_sofridos = 0
+        over25 = 0
+        btts = 0
 
-    gols_feitos = 0
-    gols_sofridos = 0
-    over25 = 0
-    btts = 0
+        jogos_formatados = []
 
-    jogos = []
+        for m in last_matches:
+            home = m["score"]["fullTime"]["home"] or 0
+            away = m["score"]["fullTime"]["away"] or 0
 
-    for m in matches:
+            home_name = m["homeTeam"]["name"]
+            away_name = m["awayTeam"]["name"]
 
-        home = m["score"]["fullTime"]["home"] or 0
-        away = m["score"]["fullTime"]["away"] or 0
+            # identifica lado do time
+            if name.lower() in home_name.lower():
+                gols_feitos += home
+                gols_sofridos += away
+            else:
+                gols_feitos += away
+                gols_sofridos += home
 
-        gols_feitos += home + away
+            if home + away > 2:
+                over25 += 1
 
-        if home + away > 2:
-            over25 += 1
+            if home > 0 and away > 0:
+                btts += 1
 
-        if home > 0 and away > 0:
-            btts += 1
+            jogos_formatados.append({
+                "jogo": f"{home_name} {home} x {away} {away_name}",
+                "data": m["utcDate"],
+                "status": m["status"]
+            })
 
-        jogos.append({
-            "home": m["homeTeam"]["name"],
-            "away": m["awayTeam"]["name"],
-            "placar": f"{home} x {away}",
-            "status": m["status"]
-        })
+        total = len(last_matches) if last_matches else 1
 
-    total = len(matches)
+        return {
+            "time": name,
+            "jogos_analisados": total,
+            "gols_feitos": gols_feitos,
+            "gols_sofridos": gols_sofridos,
+            "media_gols_feitos": round(gols_feitos / total, 2),
+            "media_gols_sofridos": round(gols_sofridos / total, 2),
+            "over_2_5": f"{(over25 / total) * 100:.2f}%",
+            "btts": f"{(btts / total) * 100:.2f}%",
+            "ultimos_jogos": jogos_formatados
+        }
 
-    return {
-        "team_id": team_id,
-        "jogos": total,
-        "gols_totais": gols_feitos,
-        "media_gols": round(gols_feitos / total, 2),
-        "over_2_5": f"{(over25 / total) * 100:.2f}%",
-        "btts": f"{(btts / total) * 100:.2f}%",
-        "ultimos_jogos": jogos
-    }
+    except Exception as e:
+        return {"erro": str(e)}
 
 
+# -----------------------------
+# RUN LOCAL (Render ignora isso)
+# -----------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+    git add .
+git commit -m "API PRO melhorada"
+git push
