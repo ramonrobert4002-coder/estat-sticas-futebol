@@ -64,7 +64,7 @@ def team(nome):
 
         if "response" not in data:
     return data
-            }
+            
 
         jogos = data["response"]
 
