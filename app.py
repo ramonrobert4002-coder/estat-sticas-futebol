@@ -39,11 +39,29 @@ def brasileirao():
     data = r.json()
     matches = data.get("matches", [])
 
-    return {
-        "jogos_encontrados": len(matches),
-        "jogos": matches
-    }
+    gols = 0
+    sofridos = 0
+    over25 = 0
+    btts = 0
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    for m in matches:
+        home = m["score"]["fullTime"]["home"] or 0
+        away = m["score"]["fullTime"]["away"] or 0
+
+        gols += home + away
+
+        if home + away > 2:
+            over25 += 1
+
+        if home > 0 and away > 0:
+            btts += 1
+
+    total = len(matches) if matches else 1
+
+    return {
+        "jogos": total,
+        "gols_totais": gols,
+        "media_gols": gols / total,
+        "over_2_5": f"{(over25 / total) * 100:.2f}%",
+        "btts": f"{(btts / total) * 100:.2f}%"
     
