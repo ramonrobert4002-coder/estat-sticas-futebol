@@ -63,9 +63,7 @@ def team(nome):
         data = r.json()
 
         if "response" not in data:
-            return {
-                "erro": "API retornou erro",
-                "resposta": data
+    return data
             }
 
         jogos = data["response"]
