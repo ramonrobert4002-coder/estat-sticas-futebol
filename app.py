@@ -1,19 +1,16 @@
-from flask import Flask, jsonify
+from flask import Flask
 import requests
 
 app = Flask(__name__)
 
-API_KEY = "1e2f241e1846458ab5e8e68f7889bf1f"
 BASE_URL = "https://api.football-data.org/v4"
+API_KEY = "1e2f241e1846458ab5e8e68f7889bf1f"
 
 headers = {
     "X-Auth-Token": API_KEY
 }
 
 
-# --------------------------------
-# PÁGINA INICIAL
-# --------------------------------
 @app.route("/")
 def home():
     return {
@@ -21,193 +18,153 @@ def home():
         "rotas": {
             "/competitions": "Lista ligas",
             "/brasileirao": "Estatísticas gerais do Brasileirão",
-            "/team/Flamengo": "Estatísticas do Flamengo",
-            "/team/Palmeiras": "Estatísticas do Palmeiras"
+            "/team/Palmeiras": "Estatísticas do Palmeiras",
+            "/team/Flamengo": "Estatísticas do Flamengo"
         }
     }
 
 
-# --------------------------------
-# TESTE DA API
-# --------------------------------
-@app.route("/test")
-def test():
-    try:
-        r = requests.get(
-            f"{BASE_URL}/competitions",
-            headers=headers,
-            timeout=10
-        )
-        return jsonify(r.json())
-    except Exception as e:
-        return {"erro": str(e)}
-
-
-# --------------------------------
-# COMPETIÇÕES
-# --------------------------------
 @app.route("/competitions")
 def competitions():
-    try:
-        r = requests.get(
-            f"{BASE_URL}/competitions",
-            headers=headers,
-            timeout=10
-        )
-        return jsonify(r.json())
-    except Exception as e:
-        return {"erro": str(e)}
+    url = f"{BASE_URL}/competitions"
+    r = requests.get(url, headers=headers)
+    return r.json()
 
 
-# --------------------------------
-# ESTATÍSTICAS DO BRASILEIRÃO
-# --------------------------------
 @app.route("/brasileirao")
 def brasileirao():
+    url = f"{BASE_URL}/competitions/2013/matches"
+    r = requests.get(url, headers=headers)
 
-    try:
-        url = f"{BASE_URL}/competitions/2013/matches?limit=380"
+    data = r.json()
+    matches = data.get("matches", [])
 
-        r = requests.get(
-            url,
-            headers=headers,
-            timeout=10
-        )
+    jogos = [m for m in matches if m["status"] == "FINISHED"]
 
-        data = r.json()
+    gols = 0
+    over25 = 0
+    btts = 0
 
-        matches = data.get("matches", [])
+    for m in jogos:
+        home = m["score"]["fullTime"]["home"] or 0
+        away = m["score"]["fullTime"]["away"] or 0
 
-        gols = 0
-        over25 = 0
-        btts = 0
+        gols += home + away
 
-        for m in matches:
+        if home + away > 2:
+            over25 += 1
 
-            home = m["score"]["fullTime"]["home"] or 0
-            away = m["score"]["fullTime"]["away"] or 0
+        if home > 0 and away > 0:
+            btts += 1
 
-            gols += home + away
+    total = len(jogos) if jogos else 1
 
-            if home + away > 2:
-                over25 += 1
-
-            if home > 0 and away > 0:
-                btts += 1
-
-        total = len(matches)
-
-        if total == 0:
-            return {"erro": "Nenhum jogo encontrado"}
-
-        return {
-            "jogos": total,
-            "gols_totais": gols,
-            "media_gols": round(gols / total, 2),
-            "over_2_5": f"{(over25 / total) * 100:.2f}%",
-            "btts": f"{(btts / total) * 100:.2f}%"
-        }
-
-    except Exception as e:
-        return {"erro": str(e)}
+    return {
+        "jogos": total,
+        "gols_totais": gols,
+        "media_gols": round(gols / total, 2),
+        "over_2_5": f"{(over25 / total) * 100:.2f}%",
+        "btts": f"{(btts / total) * 100:.2f}%"
+    }
 
 
-# --------------------------------
-# ESTATÍSTICAS DO TIME
-# Exemplo:
-# /team/Flamengo
-# --------------------------------
 @app.route("/team/<name>")
 def team(name):
 
-    try:
+    url = f"{BASE_URL}/competitions/2013/matches"
+    r = requests.get(url, headers=headers)
 
-        url = f"{BASE_URL}/competitions/2013/matches?limit=380"
+    data = r.json()
+    matches = data.get("matches", [])
 
-        r = requests.get(
-            url,
-            headers=headers,
-            timeout=10
+    filtered = []
+
+    for m in matches:
+        home_team = m["homeTeam"]["name"]
+        away_team = m["awayTeam"]["name"]
+
+        if (
+            name.lower() in home_team.lower()
+            or name.lower() in away_team.lower()
+        ) and m["status"] == "FINISHED":
+            filtered.append(m)
+
+    filtered = filtered[-10:]
+
+    gols_feitos = 0
+    gols_sofridos = 0
+    over25 = 0
+    btts = 0
+    vitorias = 0
+    empates = 0
+    derrotas = 0
+
+    ultimos_jogos = []
+
+    for m in filtered:
+
+        home_team = m["homeTeam"]["name"]
+        away_team = m["awayTeam"]["name"]
+
+        home = m["score"]["fullTime"]["home"] or 0
+        away = m["score"]["fullTime"]["away"] or 0
+
+        ultimos_jogos.append(
+            f"{home_team} {home} x {away} {away_team}"
         )
 
-        data = r.json()
+        if name.lower() in home_team.lower():
 
-        matches = data.get("matches", [])
+            gols_feitos += home
+            gols_sofridos += away
 
-        filtered = []
-
-        for m in matches:
-
-            home_team = m["homeTeam"]["name"]
-            away_team = m["awayTeam"]["name"]
-
-            if (
-                name.lower() in home_team.lower()
-                or
-                name.lower() in away_team.lower()
-            ):
-                filtered.append(m)
-
-        filtered = filtered[-10:]
-
-        if len(filtered) == 0:
-            return {
-                "erro": f"Time '{name}' não encontrado"
-            }
-
-        gols_feitos = 0
-        gols_sofridos = 0
-        over25 = 0
-        btts = 0
-
-        ultimos_jogos = []
-
-        for m in filtered:
-
-            home_goals = m["score"]["fullTime"]["home"] or 0
-            away_goals = m["score"]["fullTime"]["away"] or 0
-
-            home_name = m["homeTeam"]["name"]
-            away_name = m["awayTeam"]["name"]
-
-            if name.lower() in home_name.lower():
-                gols_feitos += home_goals
-                gols_sofridos += away_goals
+            if home > away:
+                vitorias += 1
+            elif home == away:
+                empates += 1
             else:
-                gols_feitos += away_goals
-                gols_sofridos += home_goals
+                derrotas += 1
 
-            if home_goals + away_goals > 2:
-                over25 += 1
+        else:
 
-            if home_goals > 0 and away_goals > 0:
-                btts += 1
+            gols_feitos += away
+            gols_sofridos += home
 
-            ultimos_jogos.append({
-                "jogo": f"{home_name} {home_goals} x {away_goals} {away_name}",
-                "status": m["status"]
-            })
+            if away > home:
+                vitorias += 1
+            elif away == home:
+                empates += 1
+            else:
+                derrotas += 1
 
-        total = len(filtered)
+        if home + away > 2:
+            over25 += 1
 
+        if home > 0 and away > 0:
+            btts += 1
+
+    total = len(filtered)
+
+    if total == 0:
         return {
-            "time": name,
-            "jogos": total,
-            "gols_feitos": gols_feitos,
-            "gols_sofridos": gols_sofridos,
-            "media_gols_feitos": round(gols_feitos / total, 2),
-            "media_gols_sofridos": round(gols_sofridos / total, 2),
-            "over_2_5": f"{(over25 / total) * 100:.2f}%",
-            "btts": f"{(btts / total) * 100:.2f}%",
-            "ultimos_jogos": ultimos_jogos
+            "erro": "Nenhum jogo finalizado encontrado para esse time."
         }
 
-    except Exception as e:
-        return {"erro": str(e)}
+    return {
+        "time": name,
+        "jogos": total,
+        "vitorias": vitorias,
+        "empates": empates,
+        "derrotas": derrotas,
+        "gols_feitos": gols_feitos,
+        "gols_sofridos": gols_sofridos,
+        "media_gols_feitos": round(gols_feitos / total, 2),
+        "media_gols_sofridos": round(gols_sofridos / total, 2),
+        "over_2_5": f"{(over25 / total) * 100:.2f}%",
+        "btts": f"{(btts / total) * 100:.2f}%",
+        "ultimos_jogos": ultimos_jogos
+    }
 
 
-# --------------------------------
-# RODAR LOCALMENTE
-# --------------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
