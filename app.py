@@ -3,7 +3,7 @@ import requests
 
 app = Flask(__name__)
 
-API_KEY = "SUA_API_KEY"
+API_KEY = "1e2f241e1846458ab5e8e68f7889bf1f"
 BASE_URL = "https://api.football-data.org/v4"
 
 headers = {
