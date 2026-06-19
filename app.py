@@ -34,3 +34,15 @@ def competitions():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+@app.route("/brasileirao")
+def brasileirao():
+    url = f"{BASE_URL}/competitions/2013/matches?limit=10"
+    r = requests.get(url, headers=headers)
+
+    data = r.json()
+    matches = data.get("matches", [])
+
+    return {
+        "jogos_encontrados": len(matches),
+        "jogos": matches
+    }
