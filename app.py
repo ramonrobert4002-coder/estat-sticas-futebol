@@ -3,7 +3,7 @@ import requests
 
 app = Flask(__name__)
 
-API_KEY = "1e2f241e1846458ab5e8e68f7889bf1f"
+API_KEY = "SUA_API_KEY_AQUI"
 BASE_URL = "https://api.football-data.org/v4"
 
 headers = {
@@ -14,10 +14,26 @@ headers = {
 def home():
     return """
     <h1>Estatísticas de Futebol</h1>
+    <p>Use: /competitions</p>
     <p>Use: /brasileirao</p>
-    <p>Use: /team?name=Palmeiras</p>
+    <p>Use: /team?name=Flamengo</p>
     """
 
+# LISTAR COMPETIÇÕES
+@app.route("/competitions")
+def competitions():
+    url = f"{BASE_URL}/competitions"
+    r = requests.get(url, headers=headers)
+    return r.json()
+
+# TESTE DA API
+@app.route("/test")
+def test():
+    url = f"{BASE_URL}/competitions"
+    r = requests.get(url, headers=headers)
+    return r.json()
+
+# BRASILEIRÃO (MÉDIA GERAL)
 @app.route("/brasileirao")
 def brasileirao():
     url = f"{BASE_URL}/competitions/2013/matches?limit=380"
@@ -42,7 +58,7 @@ def brasileirao():
         if home > 0 and away > 0:
             btts += 1
 
-    total = len(matches)
+    total = len(matches) if matches else 1
 
     return {
         "jogos": total,
@@ -52,6 +68,7 @@ def brasileirao():
         "btts": f"{(btts / total) * 100:.2f}%"
     }
 
+# ESTATÍSTICAS POR TIME
 @app.route("/team")
 def team():
     name = request.args.get("name")
@@ -74,7 +91,7 @@ def team():
         if name.lower() in home_team.lower() or name.lower() in away_team.lower():
             filtered.append(m)
 
-    filtered = filtered[-10:]
+    filtered = filtered[-10:]  # últimos 10 jogos
 
     gols_feitos = 0
     gols_sofridos = 0
@@ -82,7 +99,8 @@ def team():
     btts = 0
 
     for m in filtered:
-        /teams/{id}/matches?limit=10
+        home = m["score"]["fullTime"]["home"] or 0
+        away = m["score"]["fullTime"]["away"] or 0
 
         if name.lower() in m["homeTeam"]["name"].lower():
             gols_feitos += home
