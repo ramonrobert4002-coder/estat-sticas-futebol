@@ -59,9 +59,10 @@ def brasileirao():
     total = len(matches) if matches else 1
 
     return {
-        "jogos": total,
-        "gols_totais": gols,
-        "media_gols": gols / total,
-        "over_2_5": f"{(over25 / total) * 100:.2f}%",
-        "btts": f"{(btts / total) * 100:.2f}%"
+    "jogos": total,
+    "gols_totais": gols,
+    "media_gols": gols / total,
+    "over_2_5": f"{(over25 / total) * 100:.2f}%",
+    "btts": f"{(btts / total) * 100:.2f}%"
+}
     
